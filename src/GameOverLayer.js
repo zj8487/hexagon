@@ -1,7 +1,7 @@
 var GameOverLayer = cc.LayerColor.extend({
 	labelCoin : null,
 	labelScore : null,
-	conis : 0,
+	coins : 0,
 	score : 0,
 	// constructor
 	ctor:function () {
@@ -35,8 +35,13 @@ var GameOverLayer = cc.LayerColor.extend({
 		cc.director.runScene(new GameScene());
 	},
 	
-	addConi : function(conis){
-		this.conis += conis;
-		this.labelCoin.setString("Conins:" + this.conis);
+	addCoin : function(coins){
+		this.coins += coins;
+		this.labelCoin.setString("Conins:" + this.coins);
+	},
+	
+	addScore : function(score){
+		this.score += score;
+		this.labelScore.setString("Score:" + this.score);
 	}
 });

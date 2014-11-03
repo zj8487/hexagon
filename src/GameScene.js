@@ -6,7 +6,9 @@ BLOCK_H = 36,
 BLOCK_XREGION = 33,
 BLOCK_YREGION = 28,
 OFFSET_ODD = 16,
+//BLOCK1_RECT = cc.rect(0, 0, BLOCK_W, BLOCK_H),
 BLOCK1_RECT = cc.rect(0, 0, BLOCK_W, BLOCK_H),
+//BLOCK2_RECT = cc.rect(BLOCK_W, 0, BLOCK_W, BLOCK_H),
 BLOCK2_RECT = cc.rect(BLOCK_W, 0, BLOCK_W, BLOCK_H),
 PLAYER_W = 66,
 PLAYER_H = 118,
@@ -23,22 +25,30 @@ var GameLayer = cc.Layer.extend({
 	blocks : null,
 	batch : null,
 	block_tex : null,
+	//第二种色
+	batch2 :null,
+	block_tex2 :null,
+	//
 	player : null,
 	player_r : 4,
 	player_c : 4,
 	moving_action : null,
 	trapped_action : null,
+	active_nodes : null,
 	active_blocks : null,
+	choices_nodes :null,
+	choices_blocks : null,
+	fail_nodes : null,
+	fail_block : null,
 	trapped : false,
 	inited : false,
-	active_nodes : null,
 	step: 0,
 	json_touch:null,
 	json : null,
-	choices_blocks :null,
 	statusLayer:null,
 	score:0,
-	inserted: false,
+	clicked: false,
+	block_Tag : 0,
 	
 	ctor : function() {
 		this._super();
@@ -47,17 +57,11 @@ var GameLayer = cc.Layer.extend({
 		this.anchorY = 0;//..
 		this.active_nodes = [];//精灵实例
 		this.active_blocks = [];//精灵坐标
-		this.choices_blocks = [];//手指碰到的方块
+		this.choices_nodes = [];//手指碰到的色块实例
+		this.choices_blocks = [];//手指碰到的色块坐标
+		this.fail_nodes = [];//会下落的色块实例
+		this.fail_block = [];//会下落的色块坐标
 		this.json = {};
-//		var json = {};
-//		json["key1"] = "value1";
-//		json["key2"] = "value2";
-//		var json2 = {};
-//		json2.key1 = "xwkkx";
-//		json2.key2 = "xyf";
-//		var json3 = {};
-//		json3[1] = "one";
-//		json3[2] = "two";
 		for (var r = 0; r < ROW; r++) {
 			this.active_blocks.push([]);
 			for (var c = 0; c < COL; c++) {
@@ -70,8 +74,12 @@ var GameLayer = cc.Layer.extend({
 		this.blocks.y = OFFSET_Y;
 		this.addChild(this.blocks);
 		
-		this.batch = new cc.SpriteBatchNode(res.block_png, 81);
+		this.batch2 = new cc.SpriteBatchNode(res.block_png, 82);
+		this.block_tex2 = this.batch2.texture;
+		
+		this.batch = new cc.SpriteBatchNode(res.block_green_png, 81);
 		this.block_tex = this.batch.texture;
+		
 		var ox = x = y = 0, odd = false, block, tex = this.batch.texture;
 		for (var r = 0; r < ROW; r++) {
 			y = BLOCK_YREGION * r;
@@ -98,7 +106,6 @@ var GameLayer = cc.Layer.extend({
 			event: cc.EventListener.TOUCH_ONE_BY_ONE,
 			onTouchBegan: function(touch, event){
 				var target = event.getCurrentTarget();
-				cc.log("began  target.x  " + target.x + "began   target.y  " + target.y);
 				var pos = target.convertToNodeSpace(touch.getLocation());
 				var s = target.getContentSize();
 				var rect = cc.rect(0, 0, s.width, s.height);
@@ -113,6 +120,7 @@ var GameLayer = cc.Layer.extend({
 					if (boo) {
 //						target.thisTest(r,c);
 						target.saveTouchSprite(r,c);
+						cc.log("onTouch");
 					}
 					return true;
 				}
@@ -133,13 +141,7 @@ var GameLayer = cc.Layer.extend({
 					var boo_three = target.thanThree();
 					if (boo) {
 						target.saveTouchSprite(r,c);
-//						if (boo_three) {
-//							cc.log("可以消除  ");
-//							target.linkRemove();
-//						}
 					}else {
-						//如果choices_blocks[]中元素大于三个,删除
-						cc.log("遇到非橙色块");
 						if (boo_three) {
 							target.linkRemove();
 						}
@@ -164,13 +166,14 @@ var GameLayer = cc.Layer.extend({
 					}else {
 						target.cleanChoices();
 					}
+					target.userTouchEnded();
 				}
 			}
 		}, this)
 	},
 	//清空选中同色数组
 	cleanChoices : function () {
-		this.choices_blocks=[];
+		this.choices_nodes=[];
 	},
 	
 	removeSprite : function(r,c){
@@ -179,42 +182,109 @@ var GameLayer = cc.Layer.extend({
 		block.removeFromParent(true);
 //		cc.log("remove  r  " + r + " remove c  " + c );
 	},
+	
+	
+	userTouchEnded : function() {
+		this.tag = 0;
+		this.clicked = false;
+	},
+	
 	//保存手指遇到的橙色块
 	saveTouchSprite : function(r,c) {
-//		this.json_touch = r +""+ c;
-		cc.log("init length  " + this.choices_blocks.length);
 		var block = this.json[r+""+c];
-//		if (!this.choices_blocks[r][c]) {
-//			this.choices_blocks.push(block);
-//			this.choices_blocks[r][c] = true;
-//			cc.log("保存block  r" + r + "  c  " + c +  + "   " + this.choices_blocks.length);
+		var tag = block.getTag();
+		if (!this.clicked) {
+			this.block_Tag = tag;
+			cc.log("我按了下去  !!!!" + this.block_Tag + "  " + this.clicked);
+			this.clicked = true;
+		}
+		if (this.choices_nodes.indexOf(block) == -1) {
+			cc.log("tag  " + tag  + "   this.tag  " +this.block_Tag + "  clicked  "+ this.clicked);
+			if (tag == this.block_Tag) {
+				this.choices_nodes.push(block);
+				this.choices_blocks.push(r+""+c);
+				cc.log("点击后 length  " + this.choices_nodes.length +""+ "");
+			}else {
+				this.linkRemove();
+			}
+		}
+//		else {
+//			this.linkRemove();
 //		}
-		if (this.choices_blocks.indexOf(block) == -1) {
-			this.choices_blocks.push(block);
-			cc.log("点击后 length  " + this.choices_blocks.length +""+ "");
+	},
+	//色块掉落
+	blockFail : function(){
+		for (var i = 0; i < this.choices_blocks.length; i++) {
+			var coord = parseInt(this.choices_blocks[i]) + 10;
+			var block = this.json[coord];
+			this.fail_nodes.push(block);
+			this.fail_block.push(coord);
+		}
+		
+		for (var i = 0; i < this.fail_nodes.length; i++) {
+			this.fail_nodes[i].removeFromParent();
+		}
+		this.fail_nodes = [];
+		
+		for (var i = 0; i < this.fail_block.length; i++) {
+			var c = this.fail_block[i]%10;
+			var r = parseInt(this.fail_block[i]/10);
+			this.active_blocks[r][c] = false;
+//			this.activateBlock(r, c); 
+			this.switchBlcok(r, c);
 		}
 	},
+	
+	switchBlcok : function(r,c){
+		cc.log("(r%2==1)" + (r%2==1)* OFFSET_ODD + "   "+(r%2==1));
+		if (!this.active_blocks[r][c]) {
+			var block = new cc.Sprite(this.block_tex2, BLOCK1_RECT);
+			block.attr({
+				anchorX : 0,
+				anchorY : 0,
+				x : OFFSET_X + ((r-1)%2==1) * OFFSET_ODD + BLOCK_XREGION * c,
+				y : OFFSET_Y + BLOCK_YREGION * (r-1) ,
+				
+				width : BLOCK_W,
+				height : BLOCK_H
+			});
+			this.json[r+""+c] = block;
+			this.active_nodes.push(block);
+			this.addChild(block,0, TagOfColor.Orange);
+			this.active_blocks[r][c] = true;
+			return true;
+		}
+		return false;
+	},
+	
 	
 	
 	//连续消除
 	linkRemove :  function () {
+		for (var i = 0; i < this.choices_nodes.length; i++) {
+			this.choices_nodes[i].removeFromParent();
+		}
 		for (var i = 0; i < this.choices_blocks.length; i++) {
-			this.choices_blocks[i].removeFromParent();
+			var c = this.choices_blocks[i]%10;
+			var r = parseInt(this.choices_blocks[i]/10);
+			this.choices_blocks[r][c] =false;
+			cc.log("remove  " + "r  "+ r+ "c"+c);
 		}
 		this.addScore();
-		this.choices_blocks = [];
+		this.choices_nodes = [];
+		this.blockFail();
 	},
-	//增加分数、金币
+	//增加分数
 	addScore : function() {
-		this.score = this.choices_blocks.length;
+		this.score = this.choices_nodes.length;
 		this.inserted = true;
 		
 		var statusLayer = this.getParent().getChildByTag(TagOfLayer.Status);
 		cc.log("GameLayer  statusLayer  " + statusLayer);
-		statusLayer.addScore(this.choices_blocks.length *10);
+		statusLayer.addScore(this.choices_nodes.length *10);
 		
 	},
-	//判断是否存在橙色块
+	//判断是否存在色块
 	judge : function(r, c){
 		if (!this.active_blocks[r][c]) {
 			return false;
@@ -224,34 +294,58 @@ var GameLayer = cc.Layer.extend({
 	},
 	//连接数是否大于三个
 	thanThree : function(){
-		cc.log("length  " + this.choices_blocks.length);
-		if (this.choices_blocks.length >= 3) {
+		if (this.choices_nodes.length >= 3) {
 			return true;
 		}
 		return false;
 	},
 	//随机出现橙色的块
 	initGame : function() {
-		for (var i = 0, l = this.active_nodes.length; i < l; i++) {
-			this.active_nodes[i].removeFromParent();
-			
-		}
-		this.active_nodes = [];
 		this.randomBlocks();
-		
 
 	},
 	//随机生成背景块
 	randomBlocks : function() {
-		cc.log("init random Blocks");
-		var nb = Math.round(cc.random0To1() * 13) + 7, r, c;
+//		var nb = Math.round(cc.random0To1() * 13) + 7, r, c;
+		var nb = ROW * COL, r, c;
 		for (var i = 0; i < nb; i++) {
 			r = Math.floor(cc.random0To1() * 9);
 			c = Math.floor(cc.random0To1() * 9);
-			this.activateBlock(r, c);
+			if (i <= (nb-1)/2) {
+				if (!this.orangeBlcok(r, c)) {
+					i--;
+				}
+			}else {
+				if (!this.activateBlock(r, c)) {
+					i--;
+				}
+			}
 		}
+		
+
+	},
+	//橙色
+	orangeBlcok : function(r,c){
+		if (!this.active_blocks[r][c]) {
+			var block = new cc.Sprite(this.block_tex2, BLOCK1_RECT);
+			block.attr({
+				anchorX : 0,
+				anchorY : 0,
+				x : OFFSET_X + (r%2==1) * OFFSET_ODD + BLOCK_XREGION * c,
+				y : OFFSET_Y + BLOCK_YREGION * r,
+				width : BLOCK_W,
+				height : BLOCK_H
+			});
+			this.json[r+""+c] = block;
+			this.active_nodes.push(block);
+			this.addChild(block,0, TagOfColor.Orange);
+			this.active_blocks[r][c] = true;
+			return true;
+		}
+		return false;
 	},
 	
+	//绿色
 	activateBlock : function(r, c) {
 		if (!this.active_blocks[r][c]) {
 			var block = new cc.Sprite(this.block_tex, BLOCK1_RECT);
@@ -265,9 +359,9 @@ var GameLayer = cc.Layer.extend({
 			});
 			this.json[r+""+c] = block;
 			this.active_nodes.push(block);
-			this.addChild(block, 2);
+			this.addChild(block,0, TagOfColor.Green);
+			var tag = block.getTag();
 			this.active_blocks[r][c] = true;
-//			this.removeManyBlock(r, c, block);
 			return true;
 		}
 		return false;
@@ -276,7 +370,7 @@ var GameLayer = cc.Layer.extend({
 });
 
 var GameScene = cc.Scene.extend({
-	inserted :false,
+	statusLayer : null,
 	onEnter : function() {
 		this._super();
 		this.addChild(new StatusLayer(),0 , TagOfLayer.Status);
@@ -287,19 +381,26 @@ var GameScene = cc.Scene.extend({
 		var game = new GameLayer();
 		this.addChild(game);
 		game.initGame();
-		var statusLayer = this.getChildByTag(TagOfLayer.Status);
-		cc.log("statusLayer is exists?  " + statusLayer + "");
 		
+		statusLayer = this.getChildByTag(TagOfLayer.Status);
+
+
 		var time = 10
-		this.schedule(function() {
-			time = time-1;
-			statusLayer.redTime(time);
-			if (time <= 0) {
-				cc.director.pause();
-				this.addChild(new GameOverLayer(),0,TagOfLayer.GameOver);
-			}
-		}, 1, 13, 0);
-//		this.scheduleUpdate();
+		//游戏倒计时
+//		this.schedule(function() {
+//			time = time-1;
+//			statusLayer.redTime(time);
+//			if (time <= 0) {
+//				cc.director.pause();
+//				var scores = statusLayer.getScores();
+//				var coins = statusLayer.getCoins();
+//				cc.log("StatusLayer   scores  " + scores);
+//				
+//				this.addChild(new GameOverLayer(),0,TagOfLayer.GameOver);
+//				this.getChildByTag(TagOfLayer.GameOver).addCoin(coins);
+//				this.getChildByTag(TagOfLayer.GameOver).addScore(scores);
+//			}
+//		}, 1, 10, 0);
 	},
 	
 });

@@ -23,7 +23,7 @@ var StatusLayer = cc.Layer.extend({
 		this.labelScore.setPosition(cc.p(winsize.width - 70, winsize.height - 20));
 		this.addChild(this.labelScore);
 		
-		this.labelTime = cc.LabelTTF.create("Time: 1" ,"Helvetica", 20);
+		this.labelTime = cc.LabelTTF.create("Time: 10" ,"Helvetica", 20);
 		this.labelTime.setPosition(cc.p(winsize.width /2, winsize.height -20));
 		this.addChild(this.labelTime);
 	},
@@ -31,15 +31,25 @@ var StatusLayer = cc.Layer.extend({
 	addCoin : function(num) {
 		num = num +1;
 		this.conis += num;
-		
 		this.labelCoin.setString("Conis:" + this.conis);
+		
+	},
+	
+	getCoins : function(){
+		return this.conis;
 	},
 	
 	addScore : function(score){
 		this.score += score;
 		this.labelScore.setString("Score:" + this.score);
-		cc.log("增加分数");
+		cc.log("增加分数   " + this.score);
 	},
+	
+	getScores : function(){
+		return this.score;
+	},
+	
+	
 	//倒计时
 	redTime : function(time) {
 		if (time <= 0) {

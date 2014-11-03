@@ -8,7 +8,6 @@ var GameOverLayer2 = cc.LayerColor.extend({
 	},
 	init:function () {
 		this._super();
-		cc.log("碎了掌风");
 		var winSize = cc.director.getWinSize();
 
 		var centerPos = cc.p(winSize.width / 2, winSize.height / 2);
